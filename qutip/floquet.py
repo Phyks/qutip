@@ -371,8 +371,8 @@ def floquet_wavefunction_t(f_modes_t, f_energies, f_coeff, t):
     """
     f_states_t = floquet_states_t(f_modes_t, f_energies, t)
     return sum([
-        f_states_t[i] * f_coeff[i]
-        for i in np.arange(len(f_energies))
+        f_state * coeff
+        for (f_state_t, coeff) in zip(f_states_t, f_coeff)
     ])
 
 

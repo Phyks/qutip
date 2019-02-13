@@ -261,7 +261,6 @@ class TestFloquet:
         Floquet: test computation of the full wavefunction given an initial
         decomposition on Floquet modes and a time t.
         """
-        # TODO
         H, T, args = self._get_simple_driven_qubit_hamiltonian()
         t = T / 10
         psi0 = qutip.rand_ket(2)
@@ -278,28 +277,30 @@ class TestFloquet:
         # compare with Schrodinger evolution
         sol_ref = mesolve(H, psi0, [t], [], [], args)
 
-        assert_(np.isclose((sol - sol_ref.states[-1]).norm(), 0))
+        assert_((sol - sol_ref.states[-1]).norm() < 1e-4)
 
     def testFloquetUnitary(self):
         """
         Floquet: test the full unitary evolution of time-dependent two-level
         system.
         """
-        # TODO
         H, T, args = self._get_simple_driven_qubit_hamiltonian()
         tlist = np.linspace(0.0, 2 * T, 101)
         psi0 = qutip.rand_ket(2)
-        e_ops = [qutip.num(2)]
 
+        e_ops = []
         # solve schrodinger equation with floquet solver
         sol = floquet.fsesolve(H, psi0, tlist, e_ops, T, args)
-
         # compare with results from standard schrodinger equation
         sol_ref = qutip.mesolve(H, psi0, tlist, [], e_ops, args)
+        assert_((sol.states[-1] - sol_ref.states[-1]).norm() < 1e-4)
 
-        assert_(np.isclose(
-            np.linalg.norm(sol.expect[0] - sol_ref.expect[0]),
-            0))
+        e_ops = [qutip.num(2)]
+        # solve schrodinger equation with floquet solver
+        sol = floquet.fsesolve(H, psi0, tlist, e_ops, T, args)
+        # compare with results from standard schrodinger equation
+        sol_ref = qutip.mesolve(H, psi0, tlist, [], e_ops, args)
+        assert_(np.linalg.norm(sol.expect[0] - sol_ref.expect[0]) < 1e-4)
 
     def testFloquetUnitaryMultiLevel(self):
         """
@@ -307,6 +308,7 @@ class TestFloquet:
 
         Cavity with a detuned drive.
         """
+        # TODO
         wc = 1.0 * 2 * np.pi  # Cavity frequency
         wp = 1.5 * 2 * np.pi  # Drive frequency
         T = 2 * np.pi / wp
@@ -332,8 +334,7 @@ class TestFloquet:
         # compare with results from standard schrodinger equation
         sol_ref = qutip.mesolve(H, psi0, tlist, [], e_ops, args)
 
-        # TODO
-        assert_(max(abs(sol.expect[0] - sol_ref.expect[0])) < 1e-4)
+        assert_(np.linalg.norm(sol.expect[0] - sol_ref.expect[0]) < 1e-4)
 
     def testFloquetDissipative(self):
         """
