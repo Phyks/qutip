@@ -167,8 +167,8 @@ def floquet_modes_t(f_modes_0, f_energies, t, H, T, args=None):
     if t > 0.0:
         U = propagator(H, t, [], args)
 
-        for n in np.arange(len(f_modes_0)):
-            f_modes_t.append(U * f_modes_0[n] * exp(1j * f_energies[n] * t))
+        for (f_mode_0, f_energy) in zip(f_modes_0, f_energies):
+            f_modes_t.append(U * f_mode_0 * exp(1j * f_energy * t))
 
     else:
         f_modes_t = f_modes_0
@@ -295,8 +295,8 @@ def floquet_states_t(f_modes_t, f_energies, t):
 
     """
     return [
-        f_modes_t[i] * exp(-1j * f_energies[i] * t)
-        for i in np.arange(len(f_energies))
+        f_mode_t * exp(-1j * f_energy * t)
+        for (f_mode_t, f_energy) in zip(f_modes_t, f_energies)
     ]
 
 
@@ -333,8 +333,8 @@ def floquet_state_decomposition(f_states, f_energies, psi):
 
     """
     return [
-        f_states[i].overlap(psi)
-        for i in np.arange(len(f_energies))
+        f_state.overlap(psi)
+        for f_state in f_states
     ]
 
 
@@ -371,7 +371,7 @@ def floquet_wavefunction_t(f_modes_t, f_energies, f_coeff, t):
     """
     f_states_t = floquet_states_t(f_modes_t, f_energies, t)
     return sum([
-        f_state * coeff
+        f_state_t * coeff
         for (f_state_t, coeff) in zip(f_states_t, f_coeff)
     ])
 
