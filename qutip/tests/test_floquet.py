@@ -34,8 +34,7 @@
 import numpy as np
 import qutip
 from numpy.testing import assert_, run_module_suite
-from qutip import (sigmax, sigmay, sigmaz, num, mesolve, destroy,
-                   basis, floquet)
+from qutip import floquet
 
 
 class TestFloquet:
@@ -123,7 +122,7 @@ class TestFloquet:
         assert_(np.allclose(f_energies_sorted, np.array(f_energies)[indices]))
 
         # Check computation with a provided propagator
-        U = qutip.propagator(H, T, [], args)
+        U = qutip.propagator(H, T, c_op_list=[], args=args)
         f_modes_0_U, f_energies_U = floquet.floquet_modes(
             H, T, args, U=U, sort=True
         )
@@ -176,17 +175,17 @@ class TestFloquet:
         f_modes_0, f_energies = floquet.floquet_modes(H, T, args)
 
         # Compute Floquet modes at time t
-        tlist = [T / 100, 2 * T / 100, 5 * T / 100]
+        tlist = [0, T / 100, 2 * T / 100, 5 * T / 100]
         f_modes_table = floquet.floquet_modes_table(
-            f_modes_0, f_energies, tlist, H, tlist, args
+            f_modes_0, f_energies, tlist, H, T, args
         )
         for t, f_modes_t in zip(tlist, f_modes_table):
-            f_modes_t_ref = floquet.floquet_modes_t_lookup(
-                f_modes_table, t, T
+            f_modes_t_ref = floquet.floquet_modes_t(
+                f_modes_0, f_energies, t, H, T, args
             )
             assert_(
                 all(
-                    (f_mode_t_ref - f_mode_t).norm() < 1e-2
+                    (f_mode_t_ref - f_mode_t).norm() < 1e-4
                     for (f_mode_t, f_mode_t_ref) in zip(f_modes_t,
                                                         f_modes_t_ref)
                 )
@@ -204,7 +203,7 @@ class TestFloquet:
         tlist = np.linspace(0, T, 100)
         t = 0.5 * (tlist[20] + tlist[21])
         f_modes_table = floquet.floquet_modes_table(
-            f_modes_0, f_energies, tlist, H, tlist, args
+            f_modes_0, f_energies, tlist, H, T, args
         )
         f_modes_t = floquet.floquet_modes_t_lookup(
             f_modes_table, t, T
@@ -237,7 +236,7 @@ class TestFloquet:
         ]
         for f_state_t, f_state_t_ref in zip(f_states_t, f_states_t_ref):
             assert_(
-                (f_state_t_ref - f_state_t).norm() < 1e-2
+                (f_state_t_ref - f_state_t).norm() < 1e-4
             )
 
     def testFloquetStateDecomposition(self):
@@ -275,7 +274,7 @@ class TestFloquet:
         sol = floquet.floquet_wavefunction_t(f_modes_t, f_energies, f_coeff, t)
 
         # compare with Schrodinger evolution
-        sol_ref = mesolve(H, psi0, [t], [], [], args)
+        sol_ref = qutip.mesolve(H, psi0, [0, t], [], [], args)
 
         assert_((sol - sol_ref.states[-1]).norm() < 1e-4)
 
@@ -292,14 +291,16 @@ class TestFloquet:
         # solve schrodinger equation with floquet solver
         sol = floquet.fsesolve(H, psi0, tlist, e_ops, T, args)
         # compare with results from standard schrodinger equation
-        sol_ref = qutip.mesolve(H, psi0, tlist, [], e_ops, args)
+        sol_ref = qutip.mesolve(H, psi0, tlist, c_ops=[], e_ops=e_ops,
+                                args=args)
         assert_((sol.states[-1] - sol_ref.states[-1]).norm() < 1e-4)
 
         e_ops = [qutip.num(2)]
         # solve schrodinger equation with floquet solver
         sol = floquet.fsesolve(H, psi0, tlist, e_ops, T, args)
         # compare with results from standard schrodinger equation
-        sol_ref = qutip.mesolve(H, psi0, tlist, [], e_ops, args)
+        sol_ref = qutip.mesolve(H, psi0, tlist, c_ops=[], e_ops=e_ops,
+                                args=args)
         assert_(np.linalg.norm(sol.expect[0] - sol_ref.expect[0]) < 1e-4)
 
     def testFloquetUnitaryMultiLevel(self):
@@ -308,7 +309,7 @@ class TestFloquet:
 
         Cavity with a detuned drive.
         """
-        # TODO
+        # TODO: Not working
         wc = 1.0 * 2 * np.pi  # Cavity frequency
         wp = 1.5 * 2 * np.pi  # Drive frequency
         T = 2 * np.pi / wp
@@ -317,7 +318,7 @@ class TestFloquet:
         epsilon_p = np.sqrt(4 * nbar) * (wp - wc)
         tlist = np.linspace(0.0, 2 * T, 101)
 
-        a = destroy(N)
+        a = qutip.destroy(N)
         H = [
             wc * a.dag() * a,
             [1.0j * epsilon_p * (a.dag() - a), 'cos(wp * t)']
@@ -326,7 +327,7 @@ class TestFloquet:
             'wp': wp
         }
         e_ops = [a.dag() * a]
-        psi0 = basis(N, 0)
+        psi0 = qutip.basis(N, 0)
 
         # solve schrodinger equation with floquet solver
         sol = floquet.fsesolve(H, psi0, tlist, e_ops, T, args)
@@ -336,19 +337,65 @@ class TestFloquet:
 
         assert_(np.linalg.norm(sol.expect[0] - sol_ref.expect[0]) < 1e-4)
 
-    def testFloquetDissipative(self):
-        """
-        Floquet: test dissipative evolution of time-dependent multi-level
-        system
-        """
-        pass  # TODO
-
     def testFloquetSteadystate(self):
         """
         Floquet: test steadystate solution of time-dependent multi-level
         system
         """
-        pass  # TODO
+        # TODO
+        wc = 1.0 * 2 * np.pi  # Cavity frequency
+        wp = 1.5 * 2 * np.pi  # Drive frequency
+        T = 2 * np.pi / wp
+        N = 20  # Truncature
+        nbar = 2
+        epsilon_p = np.sqrt(4 * nbar) * (wp - wc)  # Drive amplitude
+
+        # noise power spectrum
+        gamma1 = 0.05
+        noise_spectrum = lambda omega: 0.5 * gamma1 * omega / (2 * np.pi)
+
+        # Define time independent hamiltonian
+        a = qutip.destroy(N)
+        H = [
+            wc * a.dag() * a,
+            [1.0j * epsilon_p * (a.dag() - a), 'cos(wp * t)']
+        ]
+        args = {
+            'wp': wp
+        }
+
+        # find the floquet modes at t=0 for the time-dependent hamiltonian
+        f_modes_0, f_energies = floquet.floquet_modes(H, T, args, sort=True)
+
+        # precalculate mode table at later times
+        t_list_f_modes = np.linspace(0, T, 501)
+        f_modes_table_t = floquet.floquet_modes_table(
+            f_modes_0, f_energies,
+            t_list_f_modes,
+            H, T, args
+        )
+
+        # Compute transition matrix between Floquet modes
+        _, _, _, Amat = floquet.floquet_master_equation_rates(
+            f_modes_0, f_energies,
+            # Caution: We must use an hermitian operator for the dissipation
+            # description
+            a + a.dag(),
+            H, T, args, noise_spectrum,
+            0,  # Temperature
+            5, f_modes_table_t
+        )
+
+        # Compute steadystate
+        rho_ss = floquet.floquet_master_equation_steadystate(Amat)
+
+        # Compute reference steadystate with mesolve
+        psi0 = qutip.basis(N, 0)
+        rho_ss_ref = qutip.mesolve(
+            H, psi0, np.linspace(0, 5 * T, 100), [], [], args
+        )
+
+        assert_((rho_ss - rho_ss_ref.states[-1]).norm() < 1e-4)
 
 
 if __name__ == "__main__":

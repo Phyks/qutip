@@ -212,8 +212,8 @@ def floquet_modes_table(f_modes_0, f_energies, tlist, H, T, args=None):
         A nested list of Floquet modes as kets for each time in `tlist`
 
     """
-    # truncate tlist to the driving period
-    tlist_period = np.array(tlist)[np.where(tlist <= T)]
+    # Wrap the time values in [0, T]
+    tlist_period = [t - int(t / T) * T for t in tlist]
 
     f_modes_table_t = [[] for t in tlist_period]
 
@@ -432,6 +432,9 @@ def fsesolve(H, psi0, tlist, e_ops=None, T=None, args=None, Tsteps=100):
 
     # find the Floquet modes for the time-dependent hamiltonian
     f_modes_0, f_energies = floquet_modes(H, T, args)
+    f_modes_table_t = floquet_modes_table(f_modes_0, f_energies,
+                                          np.linspace(0, T, Tsteps + 1),
+                                          H, T, args)
 
     # setup Result for storing the results
     output = Result()
@@ -461,7 +464,7 @@ def fsesolve(H, psi0, tlist, e_ops=None, T=None, args=None, Tsteps=100):
 
     f_coeff = floquet_state_decomposition(f_modes_0, f_energies, psi0)
     for t_idx, t in enumerate(tlist):
-        f_modes_t = floquet_modes_t(f_modes_0, f_energies, t, H, T, args)
+        f_modes_t = floquet_modes_t_lookup(f_modes_table_t, t, T)
         psi_t = floquet_wavefunction_t(f_modes_t, f_energies, f_coeff, t)
 
         if expt_callback:
